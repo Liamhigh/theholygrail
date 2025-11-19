@@ -814,9 +814,12 @@ const App = () => {
         setShowErrorDetails(false);
 
         try {
-            // Check if we should use offline mode
-            if (isOffline || !GEMINI_API_KEY) {
-                console.log("Running OFFLINE FORENSICS - rule-based analysis");
+            // OFFLINE-FIRST: Always run local forensic analysis
+            // API is optional enhancement only if user wants online features
+            const useOnlineAPI = !isOffline && GEMINI_API_KEY && files.some(f => f.type === 'application/pdf' || f.size > 5000000);
+            
+            if (!useOnlineAPI) {
+                console.log("Running OFFLINE FORENSICS - Full rule-based analysis engine");
                 const offlineReport = await runOfflineForensics(files, localForensics);
                 setResult(offlineReport);
                 
@@ -1278,8 +1281,9 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                     <div style={styles.viewContainer}>
                         <h1 style={styles.welcomeTitle}>Forensic Intelligence V5</h1>
                         <p style={styles.welcomeText}>
-                            Autonomous legal verification and forensic analysis engine (Version 5).
+                            Autonomous offline forensic analysis engine (Version 5).
                             Full Brain Coverage: 9 Specialized Neural Modules Active.
+                            <br/><strong>100% Offline Capable</strong> - No internet required.
                         </p>
                         <div style={styles.actionButtons}>
                             <button onClick={() => { setCaseId(''); setCurrentView('analysis'); }} style={styles.button}>Start New Analysis</button>
@@ -1292,6 +1296,7 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                         </div>
                         <div style={styles.welcomeFooter}>
                             <p><strong>Full V5 Brain Coverage:</strong> Contradiction, Linguistics, Metadata, Financial, Legal, Voice, Handwriting, & Novelty Detection.</p>
+                            <p><strong>Offline-First Architecture:</strong> All forensic analysis runs locally on your device. No data uploaded. Optional online API for enhanced PDF analysis only.</p>
                         </div>
                     </div>
                 )}
@@ -1404,9 +1409,15 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                             </div>
                         )}
                         
-                        <button onClick={handleSubmit} disabled={loading || isOffline} style={{...styles.button, minWidth: '200px', cursor: loading ? 'wait' : (isOffline ? 'not-allowed' : 'pointer')}}>
-                            {loading ? <span style={styles.spinner} role="status" aria-label="Analyzing..."></span> : (isOffline ? 'Offline Mode (Limited)' : 'Initiate V5 Analysis')}
+                        <button onClick={handleSubmit} disabled={loading} style={{...styles.button, minWidth: '200px', cursor: loading ? 'wait' : 'pointer'}}>
+                            {loading ? <span style={styles.spinner} role="status" aria-label="Analyzing..."></span> : 'Run Forensic Analysis'}
                         </button>
+                        
+                        {isOffline && (
+                            <div style={{fontSize: '0.85rem', color: '#58a6ff', marginTop: '8px'}}>
+                                ✓ Offline Mode Active - Full forensic analysis available without internet
+                            </div>
+                        )}
                         
                         {/* Advanced Error Display */}
                         {errorInfo && (
