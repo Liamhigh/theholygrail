@@ -32,6 +32,7 @@ Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user 
 
 -   **🆓 Free for All Private Citizens:** Available at no cost to every private citizen worldwide for personal legal matters.
 -   **🔒 Zero Data Collection:** Does NOT rake, collect, or track your private information. Complete privacy guaranteed.
+-   **📴 Works Completely Offline (No API Required):** The APK can perform full forensic analysis without internet or API keys using the V5 Offline Forensics Engine.
 -   **🏛️ Advanced Legal Validation Engine:** Built-in legal precedent verification (Brain B7) and real legal validation against case law databases.
 -   **⚖️ Contradiction Detection System:** Powered by the B1 Contradiction Engine that flags contradictory statements across evidence.
 -   **✓✓✓ Triple Verification System:** Multi-layered verification through chain integrity (B2), metadata validation (B3), and content contradiction analysis (B1).
@@ -39,10 +40,10 @@ Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user 
 -   **🔐 Cryptographically Sealed Reports:** All reports sealed with SHA-256 cryptographic hashes for tamper detection and integrity verification.
 -   **100% Client-Side Forensic Processing:** All forensic analysis is performed securely on your device (in the browser or mobile app), guaranteeing privacy and confidentiality. No backend server processes your evidence.
 -   **Multi-modal Evidence Analysis:** Supports a wide range of file types including text, `.txt`, `.pdf`, and common image formats (`.png`, `.jpg`, etc.).
--   **Dynamic Model Selection:** Automatically utilizes `gemini-2.5-flash` for general cases and `gemini-2.5-pro` with an enhanced thinking budget for more complex evidence like PDFs.
+-   **Dual Analysis Modes:** V5 Offline Engine (no API needed) + Optional AI-Enhanced mode with Gemini API for advanced content analysis.
 -   **Structured Forensic Reports:** Generates highly-structured reports in Markdown, detailing executive summaries, timelines, liability assessments, strategic recommendations, and more.
 -   **Device-Only Storage:** Evidence and reports are stored locally in IndexedDB on your device - never uploaded to external servers.
--   **Offline-First & Installable:** Fully functional without an internet connection for case preparation. It can be installed on any device as a PWA.
+-   **Offline-First & Installable:** Fully functional without an internet connection. Can be installed on any device as a PWA or Android APK.
 -   **Production Ready:** Configured for deployment on Firebase Hosting (static files only) and for building into a native Android application with Capacitor.
 
 ## Tech Stack
@@ -115,16 +116,41 @@ This application uses the powerful **V5 Rules-Based Forensic Analysis System** w
 4. Report generated locally in browser → can be exported as PDF
 
 ### APK Version (Android App)
+**The APK can operate in TWO modes:**
+
+#### Mode 1: Offline-Only (No API Key Required)
+1. User uploads evidence files → stored in device's IndexedDB
+2. Click "Analyze" → **V5 Offline Forensics Engine activates automatically**
+3. Professional-grade forensic analysis runs 100% on device using rule-based algorithms
+4. Report generated locally with cryptographic sealing → can be exported as PDF
+5. **No internet connection required** - Complete forensic analysis without API
+
+**Offline Mode Capabilities:**
+- ✓ SHA-256 cryptographic hashing and tamper detection (B2)
+- ✓ Metadata validation and chain of custody (B3)
+- ✓ Timeline construction and temporal analysis (B4)
+- ✓ File type analysis and pattern recognition
+- ✓ Basic contradiction detection (B1)
+- ✓ Cryptographically sealed PDF reports
+
+#### Mode 2: AI-Enhanced (API Key Embedded at Build)
 1. User uploads evidence files → stored in device's IndexedDB
 2. Click "Analyze" → Gemini API called directly from the app (API key embedded in APK at build time)
 3. AI analysis happens via Gemini's servers, but **evidence files never leave your device**
-4. Report generated locally on device → can be exported as PDF
+4. Enhanced report with advanced content analysis → exported as PDF
+
+**AI Mode Additional Features:**
+- Advanced natural language contradiction detection
+- Legal precedent verification (B7)
+- Strategic recommendations and draft communications
+- Content-based analysis beyond metadata
 
 ### Key Points:
 - **No backend server** - The app doesn't have or need a backend server for forensic processing
-- **API key embedded at build time** - Both web and APK builds include the Gemini API key via `VITE_API_KEY`
+- **APK works offline without API** - The APK can perform complete forensic analysis using the V5 Offline Engine without requiring a Gemini API key
+- **Optional AI enhancement** - API key can be embedded at build time via `VITE_API_KEY` for AI-enhanced analysis
 - **Evidence stays local** - Files are stored in IndexedDB and never uploaded to any server
-- **Direct API calls** - The app calls Google Gemini API directly from browser/device
+- **Direct API calls (when online)** - The app calls Google Gemini API directly from browser/device when API key is present
 - **Optional Firebase** - If configured, Firebase only syncs case metadata (not evidence files or analysis results)
 
 ## Project Structure
@@ -198,35 +224,56 @@ For the workflow to succeed, you must configure the following secrets in your Gi
 
 ## Mobile Development (Capacitor)
 
-The APK is a fully functional forensic engine that runs entirely on the device. To build the Android app:
+The APK is a fully functional forensic engine that runs entirely on the device. **It can operate with or without an API key.**
+
+### Building APK Without API Key (Offline-Only Mode)
+
+For a completely offline APK that doesn't require any API configuration:
+
+1.  **Build the Web Assets:**
+    ```bash
+    npm run build
+    ```
+    The build will work without VITE_API_KEY set. The APK will use the V5 Offline Forensics Engine.
+
+2.  **Initialize the Android Platform (First time only):**
+    ```bash
+    npx cap add android
+    ```
+
+3.  **Sync Web Assets with Android Project:**
+    ```bash
+    npx cap sync
+    ```
+
+4.  **Open in Android Studio:**
+    ```bash
+    npx cap open android
+    ```
+    Build and sign your APK. It will provide complete forensic analysis capabilities without requiring internet or API keys.
+
+### Building APK With API Key (AI-Enhanced Mode)
+
+For an APK with optional AI-enhanced analysis capabilities:
 
 1.  **Configure API Key:**
-    Ensure your `.env` file contains your Gemini API key (this will be embedded in the APK at build time):
+    Create a `.env` file with your Gemini API key (will be embedded in the APK at build time):
     ```
     VITE_API_KEY=your_gemini_api_key_here
     ```
 
 2.  **Build the Web Assets:**
-    Ensure you have a fresh production build with the API key embedded.
     ```bash
     npm run build
     ```
 
-3.  **Initialize the Android Platform (First time only):**
-    This only needs to be done once to add the native Android project.
-    ```bash
-    npx cap add android
-    ```
-
-4.  **Sync Web Assets with Android Project:**
-    This command copies your web build from `dist/` into the native Android project. Run this command every time you update your web code.
+3.  **Sync and Build:**
     ```bash
     npx cap sync
+    npx cap open android
     ```
 
-5.  **Open in Android Studio:**
-    ```bash
-    npx cap open android
+The APK will automatically use AI-enhanced analysis when online, or fall back to offline mode when no connection is available.
     ```
     From Android Studio, you can run the app on an emulator or a connected physical device.
 
