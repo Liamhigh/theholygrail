@@ -690,7 +690,6 @@ const App = () => {
     const [errorInfo, setErrorInfo] = useState<DiagnosticError | null>(null);
     const [showErrorDetails, setShowErrorDetails] = useState(false);
 
-    const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [textBrightness, setTextBrightness] = useState(100);
     const [logoSrc, setLogoSrc] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -704,8 +703,9 @@ const App = () => {
     const [localForensics, setLocalForensics] = useState<any[]>([]);
 
     useEffect(() => {
-        const handleOnline = () => setIsOffline(false);
-        const handleOffline = () => setIsOffline(true);
+        // Network event listeners for debugging (logged in console)
+        const handleOnline = () => console.log("Network status changed: ONLINE");
+        const handleOffline = () => console.log("Network status changed: OFFLINE");
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
         
@@ -714,15 +714,23 @@ const App = () => {
         
         refreshCaseList().catch(err => console.error("Init DB Error", err));
 
-        // API Key Check
+        // API Key Check and Debug Info
+        console.log("=== VERUM OMNIS INITIALIZATION ===");
+        console.log("API Key configured:", GEMINI_API_KEY ? "YES (length: " + GEMINI_API_KEY.length + ")" : "NO");
+        console.log("Navigator online status:", navigator.onLine);
+        console.log("User Agent:", navigator.userAgent);
+        console.log("Platform:", navigator.platform);
+        
         if (!GEMINI_API_KEY) {
+             console.error("CRITICAL: API key is missing!");
              setErrorInfo({
                  userMessage: "System Configuration Error",
-                 // Ensure the error message clearly states process.env.API_KEY is missing
                  technicalDetails: "VITE_API_KEY is not set for this build.",
                  suggestedFix: "Set VITE_API_KEY in a .env file or CI secret before building the app (APK or web). This is used directly by the Vite build.",
                  code: "CONFIG_MISSING"
              });
+        } else {
+             console.log("API key is available, API calls will be attempted");
         }
 
         return () => {
@@ -814,9 +822,9 @@ const App = () => {
         setShowErrorDetails(false);
 
         try {
-            // Check if we should use offline mode
-            if (isOffline || !GEMINI_API_KEY) {
-                console.log("Running OFFLINE FORENSICS - rule-based analysis");
+            // Check if API key is missing - run offline mode
+            if (!GEMINI_API_KEY) {
+                console.log("Running OFFLINE FORENSICS - no API key configured");
                 const offlineReport = await runOfflineForensics(files, localForensics);
                 setResult(offlineReport);
                 
@@ -842,6 +850,10 @@ const App = () => {
             }
 
             // Online AI-powered analysis
+            console.log("=== STARTING API CALL ===");
+            console.log("API Key available:", !!GEMINI_API_KEY);
+            console.log("Files to analyze:", files.length);
+            
             // 1. Get Geolocation Context (Fail-safe)
             const locationInfo = await new Promise<string>((resolve) => {
                 if (!navigator.geolocation) {
@@ -884,12 +896,14 @@ ${JSON.stringify(localForensics, null, 2)}
             const currentTime = new Date().toISOString();
             const contextText = `\n--- CONTEXTUAL DATA ---\n${locationInfo}\nCurrent Timestamp: ${currentTime}\n${historyContext}\n${localForensicContext}\n--- END CONTEXTUAL DATA ---\n`;
             
+            console.log("Initializing GoogleGenAI client...");
             const ai = new GoogleGenAI({
                 apiKey: GEMINI_API_KEY,
             });
             
             const hasPdfFile = files.some(file => file.type === 'application/pdf');
             const modelName = hasPdfFile ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+            console.log("Selected model:", modelName);
             
             // System Instruction - V5 FULL BRAIN COVERAGE
             const systemInstruction = `You are Verum Omnis V5, a world-class forensic analysis engine. Your tone is severe, objective, and unflinching. 
@@ -966,17 +980,22 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                 config.thinkingConfig = { thinkingBudget: 32768 };
             }
 
+            console.log("Calling Gemini API...", { model: modelName, parts: parts.length });
             const response = await ai.models.generateContent({
                 model: modelName,
                 contents: { parts },
                 config,
             });
 
+            console.log("API response received");
             const reportContent = response.text;
             
             if (!reportContent) {
+                console.error("Empty response from API");
                 throw new Error("The AI returned an empty response. This usually indicates a safety block or model error.");
             }
+            
+            console.log("Report generated successfully, length:", reportContent.length);
 
             setResult(reportContent);
             
@@ -1003,6 +1022,37 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
         } catch (err) {
             const diagnosis = diagnoseError(err);
             console.error("Diagnostic Report:", diagnosis);
+            
+            // If it's a network error and we have an API key, offer to run offline mode
+            if ((diagnosis.code === 'NET_ERR' || diagnosis.code === 'UNKNOWN') && GEMINI_API_KEY) {
+                // Automatically fallback to offline forensics on network errors
+                console.log("Network error detected, falling back to offline forensics");
+                try {
+                    const offlineReport = await runOfflineForensics(files, localForensics);
+                    setResult(offlineReport);
+                    
+                    // Save to DB if Case ID exists
+                    if (caseId.trim()) {
+                        await saveReportToDB(caseId.trim(), offlineReport, files.map(f => f.name));
+                        for (const file of files) {
+                            const fileHash = localForensics.find(f => f.name === file.name)?.hash || '';
+                            await saveEvidenceFileToDB(caseId.trim(), file, fileHash, {
+                                analysisMode: 'offline_fallback',
+                                timestamp: new Date().toISOString(),
+                                originalError: diagnosis.code
+                            });
+                        }
+                        await refreshCaseList();
+                    }
+                    
+                    setCurrentView('report');
+                    setLoading(false);
+                    return;
+                } catch (offlineErr) {
+                    console.error("Offline fallback also failed:", offlineErr);
+                }
+            }
+            
             setErrorInfo(diagnosis);
         } finally {
             setLoading(false);
@@ -1404,8 +1454,8 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                             </div>
                         )}
                         
-                        <button onClick={handleSubmit} disabled={loading || isOffline} style={{...styles.button, minWidth: '200px', cursor: loading ? 'wait' : (isOffline ? 'not-allowed' : 'pointer')}}>
-                            {loading ? <span style={styles.spinner} role="status" aria-label="Analyzing..."></span> : (isOffline ? 'Offline Mode (Limited)' : 'Initiate V5 Analysis')}
+                        <button onClick={handleSubmit} disabled={loading} style={{...styles.button, minWidth: '200px', cursor: loading ? 'wait' : 'pointer'}}>
+                            {loading ? <span style={styles.spinner} role="status" aria-label="Analyzing..."></span> : 'Initiate V5 Analysis'}
                         </button>
                         
                         {/* Advanced Error Display */}
