@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify": "node verify-deployment.cjs",
+    "sync": "cap sync",
+    "build:apk": "npm run build && npm run sync"
   },
   "dependencies": {
     "@google/genai": "^1.29.1",

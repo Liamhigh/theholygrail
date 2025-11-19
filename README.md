@@ -70,6 +70,9 @@ Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user 
 
 ## Build and Deployment
 
+### Quick Start
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ### Production Web Build
 
 To create an optimized production build of the web app:
@@ -80,41 +83,47 @@ npm run build
 
 The output files will be generated in the `dist/` directory.
 
+### Verify Deployment Configuration
+
+Check that everything is configured correctly:
+
+```bash
+npm run verify
+```
+
 ### Firebase Hosting
 
-This project is configured for continuous deployment to Firebase Hosting. Every push to the `main` branch triggers the GitHub Actions workflow defined in `.github/workflows/firebase-hosting.yml`. This workflow automatically builds and deploys the application.
+This project is configured for continuous deployment to Firebase Hosting. Every push to the `main` branch triggers the GitHub Actions workflow defined in `.github/workflows/production.yml`. This workflow automatically builds and deploys the application.
 
 For the workflow to succeed, you must configure the following secrets in your GitHub repository settings:
 -   `VITE_API_KEY`: Your Google Gemini API key.
 -   `FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_ENGINE`: The JSON content of your Firebase service account key.
 
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed information about how the deployment works.
+
 ## Mobile Development (Capacitor)
 
-To build and run the application as a native Android app:
+To build and run the application as a native Android app, see the detailed [DEPLOYMENT.md](./DEPLOYMENT.md) guide.
+
+Quick commands:
 
 1.  **Build the Web Assets:**
-    Ensure you have a fresh production build.
     ```bash
     npm run build
     ```
 
-2.  **Initialize the Android Platform:**
-    This only needs to be done once to add the native Android project.
+2.  **Sync Web Assets with Android Project:**
     ```bash
-    npx cap add android
+    npm run sync
+    # Or manually: npx cap sync
     ```
 
-3.  **Sync Web Assets with Android Project:**
-    This command copies your web build from `dist/` into the native Android project. Run this command every time you update your web code.
-    ```bash
-    npx cap sync
-    ```
-
-4.  **Open in Android Studio:**
+3.  **Open in Android Studio:**
     ```bash
     npx cap open android
     ```
-    From Android Studio, you can run the app on an emulator or a connected physical device.
+    
+For APK building via Gradle, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ## Contributing
 
