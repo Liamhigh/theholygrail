@@ -1279,14 +1279,29 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
             <main style={styles.mainContainer} aria-live="polite" aria-busy={loading}>
                 {currentView === 'welcome' && (
                     <div style={styles.viewContainer}>
-                        <h1 style={styles.welcomeTitle}>Forensic Intelligence V5</h1>
+                        <h1 style={styles.welcomeTitle}>Universal Access to Justice</h1>
+                        <div style={{fontSize: '1.5rem', color: '#58a6ff', fontWeight: 500, margin: '16px 0', textAlign: 'center'}}>
+                            🌍 Historic Breakthrough
+                        </div>
                         <p style={styles.welcomeText}>
-                            Autonomous offline forensic analysis engine (Version 5).
-                            Full Brain Coverage: 9 Specialized Neural Modules Active.
-                            <br/><strong>100% Offline Capable</strong> - No internet required.
+                            <strong>For the first time in human history, every person on Earth has access to professional forensic analysis.</strong>
+                            <br/><br/>
+                            Verum Omnis V5 brings world-class legal intelligence to your pocket - completely free, forever.
+                            No lawyers required. No expensive consultations. No barriers to justice.
                         </p>
+                        <div style={{...styles.welcomeText, fontSize: '1rem', color: '#a5d6ff', marginTop: '24px'}}>
+                            <p>✓ <strong>100% Free</strong> - No subscriptions, no hidden costs</p>
+                            <p>✓ <strong>100% Offline</strong> - Works without internet or data</p>
+                            <p>✓ <strong>100% Private</strong> - Your data never leaves your device</p>
+                            <p>✓ <strong>9 AI Brains Active</strong> - Professional-grade forensic analysis</p>
+                        </div>
                         <div style={styles.actionButtons}>
-                            <button onClick={() => { setCaseId(''); setCurrentView('analysis'); }} style={styles.button}>Start New Analysis</button>
+                            <button onClick={() => { setCaseId(''); setCurrentView('analysis'); }} style={{...styles.button, fontSize: '1.1rem', padding: '16px 32px'}}>
+                                🚀 Start Free Analysis Now
+                            </button>
+                            <a href="/verum-omnis-v5-production.apk" download style={{...styles.button, backgroundColor: '#58a6ff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', padding: '16px 32px'}}>
+                                📱 Download Android APK (4.6MB)
+                            </a>
                             {savedCases.length > 0 && (
                                 <button onClick={() => setCurrentView('caseList')} style={styles.secondaryButton}>Open Case Repository ({savedCases.length})</button>
                             )}
@@ -1295,8 +1310,12 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                             )}
                         </div>
                         <div style={styles.welcomeFooter}>
-                            <p><strong>Full V5 Brain Coverage:</strong> Contradiction, Linguistics, Metadata, Financial, Legal, Voice, Handwriting, & Novelty Detection.</p>
-                            <p><strong>Offline-First Architecture:</strong> All forensic analysis runs locally on your device. No data uploaded. Optional online API for enhanced PDF analysis only.</p>
+                            <p><strong>What This Means for Humanity:</strong></p>
+                            <p>Every person - regardless of wealth, location, or education - can now access the same forensic tools used by top law firms and investigators worldwide. This levels the playing field in legal matters, empowers the marginalized, and makes justice truly universal.</p>
+                            <p style={{marginTop: '16px'}}><strong>V5 Forensic Capabilities:</strong> Contradiction Detection, Linguistic Analysis, Metadata Forensics, Financial Pattern Recognition, Legal Compliance Checking, Voice Analysis, Handwriting Verification, Timeline Construction, and Novelty Detection.</p>
+                            <p style={{marginTop: '16px', fontSize: '0.9rem', color: '#8b949e'}}>
+                                <strong>Offline-First Architecture:</strong> All forensic analysis runs locally on your device. No data uploaded. Optional online API for legal compliance checks only.
+                            </p>
                         </div>
                     </div>
                 )}
