@@ -88,6 +88,48 @@ For the workflow to succeed, you must configure the following secrets in your Gi
 -   `VITE_API_KEY`: Your Google Gemini API key.
 -   `FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_ENGINE`: The JSON content of your Firebase service account key.
 
+## Getting the Android APK
+
+There are three ways to get the Android APK for Verum Omnis:
+
+### Option 1: Download Pre-built APK from Repository
+
+A pre-built APK is available in the root of this repository:
+-   **File:** `verum-omnis-engine.apk`
+-   Simply download this file directly from the repository and install it on your Android device.
+
+### Option 2: Download from GitHub Actions Artifacts
+
+Every push to the `main` branch automatically builds a new APK via GitHub Actions:
+
+1.  Go to the [Actions tab](../../actions) in this repository
+2.  Click on the latest successful "Production Build & Deploy" workflow run
+3.  Scroll down to the "Artifacts" section
+4.  Download the `verum-omnis-release` artifact
+5.  Extract the ZIP file to get `app-release-unsigned.apk`
+
+### Option 3: Build APK Locally
+
+To build the APK yourself using the command line:
+
+1.  **Build the Web Assets:**
+    ```bash
+    npm run build
+    ```
+
+2.  **Sync Web Assets with Android Project:**
+    ```bash
+    npx cap sync
+    ```
+
+3.  **Build the APK:**
+    ```bash
+    cd android && ./gradlew assembleRelease
+    ```
+    The APK will be generated at `android/app/build/outputs/apk/release/app-release-unsigned.apk`
+
+**Note:** The unsigned APK can be installed on Android devices with developer mode enabled. For production distribution, you'll need to sign the APK with your own keystore.
+
 ## Mobile Development (Capacitor)
 
 To build and run the application as a native Android app:
