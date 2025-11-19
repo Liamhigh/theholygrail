@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import jsPDF from 'jspdf';
 import { marked } from 'marked';
+import { storage } from './storage';
 
 // --- Gemini API Key Constant ---
 // Read from Vite env so it works for web + APK builds
@@ -198,7 +199,7 @@ const V5_RULES = {
   ]
 };
 
-// --- IndexedDB Helper Functions (Enhanced Binary Context & History) ---
+/* Legacy IndexedDB constants - Now handled by storage layer
 const DB_NAME = 'VerumOmnisDB';
 const STORE_NAME = 'reports';
 const FILES_STORE_NAME = 'evidence_files';
@@ -209,6 +210,7 @@ const wrapDBError = (err: any, operation: string) => {
     return new Error(`Database failure during ${operation}: ${err.message || err}`);
 };
 
+/* Legacy IndexedDB - Now handled by storage layer
 const openDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 3); // Bumped version for new stores
@@ -244,59 +246,26 @@ const openDB = (): Promise<IDBDatabase> => {
         request.onerror = (event: any) => reject(wrapDBError(event.target.error, 'OPEN'));
     });
 };
+*/
 
-// Save binary file with context
+// Save binary file with context (uses unified storage)
 const saveEvidenceFileToDB = async (caseId: string, file: File, fileHash: string, metadata: any) => {
     if (!caseId) return;
     try {
-        const db = await openDB();
-        
-        // Convert file to ArrayBuffer for binary storage
-        const arrayBuffer = await file.arrayBuffer();
-        
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(FILES_STORE_NAME, 'readwrite');
-            const store = tx.objectStore(FILES_STORE_NAME);
-            
-            store.add({
-                caseId,
-                fileName: file.name,
-                fileType: file.type,
-                fileSize: file.size,
-                fileHash,
-                binaryData: arrayBuffer,
-                metadata,
-                timestamp: new Date().toISOString()
-            });
-            
-            tx.oncomplete = () => resolve(true);
-            tx.onerror = () => reject(wrapDBError(tx.error, 'WRITE_FILE'));
-        });
+        await storage.saveEvidence(caseId, file, fileHash, metadata);
     } catch (e) {
         console.error("Failed to save evidence file", e);
     }
 };
 
-// Get all evidence files for a case
+// Get all evidence files for a case (uses unified storage)
 const getEvidenceFilesByCase = async (caseId: string): Promise<any[]> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(FILES_STORE_NAME, 'readonly');
-        const store = tx.objectStore(FILES_STORE_NAME);
-        const index = store.index('caseId');
-        const request = index.getAll(IDBKeyRange.only(caseId));
-        
-        request.onsuccess = () => {
-            const results = request.result;
-            results.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-            resolve(results);
-        };
-        request.onerror = () => reject(wrapDBError(request.error, 'READ_FILES_BY_CASE'));
-    });
+    return storage.getEvidence(caseId);
 };
 
 // Update or create case metadata with narrative index
-const updateCaseMetadata = async (caseId: string, updates: any) => {
+// TODO: Migrate to unified storage layer
+/* const updateCaseMetadata = async (caseId: string, updates: any) => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction(METADATA_STORE_NAME, 'readwrite');
@@ -327,25 +296,16 @@ const updateCaseMetadata = async (caseId: string, updates: any) => {
         
         getRequest.onerror = () => reject(wrapDBError(getRequest.error, 'GET_METADATA'));
     });
-};
+}; */
 
-// Get case metadata
+// Get case metadata (uses unified storage)
 const getCaseMetadata = async (caseId: string): Promise<any> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(METADATA_STORE_NAME, 'readonly');
-        const store = tx.objectStore(METADATA_STORE_NAME);
-        const request = store.get(caseId);
-        
-        request.onsuccess = () => resolve(request.result || null);
-        request.onerror = () => reject(wrapDBError(request.error, 'GET_METADATA'));
-    });
+    return storage.getCaseMetadata(caseId);
 };
 
 const saveReportToDB = async (caseId: string, content: string, evidence: string[]) => {
-    if (!caseId) return; 
+    if (!caseId) return;
     try {
-        const db = await openDB();
         const reportHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))
             .then(buffer => {
                 const hashArray = Array.from(new Uint8Array(buffer));
@@ -355,34 +315,23 @@ const saveReportToDB = async (caseId: string, content: string, evidence: string[
         // Extract narrative elements for indexing
         const narrativeIndex = extractNarrativeIndex(content);
         
-        return new Promise(async (resolve, reject) => {
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
-            
-            store.add({ 
-                caseId, 
-                content, 
-                evidence,
-                reportHash,
-                narrativeIndex,
-                timestamp: new Date().toISOString() 
-            });
-            
-            tx.oncomplete = async () => {
-                // Update case metadata
-                const reports = await getReportsByCase(caseId);
-                await updateCaseMetadata(caseId, {
-                    reportCount: reports.length,
-                    evidenceCount: evidence.length,
-                    lastReportHash: reportHash,
-                    narrativeIndex: mergeNarrativeIndices(reports.map(r => r.narrativeIndex || []))
-                });
-                resolve(true);
-            };
-            tx.onerror = () => reject(wrapDBError(tx.error, 'WRITE'));
+        // Save using unified storage (works on all devices + optional Firebase sync)
+        await storage.saveReport(caseId, content, evidence, {
+            reportHash,
+            narrativeIndex
+        });
+        
+        // Update case metadata
+        const reports = await storage.getReports(caseId);
+        await storage.saveCaseMetadata(caseId, {
+            reportCount: reports.length,
+            evidenceCount: evidence.length,
+            lastReportHash: reportHash,
+            narrativeIndex: mergeNarrativeIndices(reports.map(r => r.narrativeIndex || [])),
+            updatedAt: new Date().toISOString()
         });
     } catch (e) {
-        console.error("Failed to save to DB", e);
+        console.error("Failed to save report", e);
     }
 };
 
@@ -480,34 +429,11 @@ const mergeNarrativeIndices = (indices: any[][]): any[] => {
 };
 
 const getReportsByCase = async (caseId: string): Promise<any[]> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const index = store.index('caseId');
-        const request = index.getAll(IDBKeyRange.only(caseId));
-        request.onsuccess = () => {
-            const results = request.result;
-            results.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-            resolve(results);
-        };
-        request.onerror = () => reject(wrapDBError(request.error, 'READ_BY_CASE'));
-    });
+    return storage.getReports(caseId);
 };
 
 const getAllCasesList = async (): Promise<string[]> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const request = store.getAll();
-        request.onsuccess = () => {
-            const reports = request.result;
-            const cases = new Set(reports.map((r: any) => r.caseId).filter(Boolean));
-            resolve(Array.from(cases) as string[]);
-        };
-        request.onerror = () => reject(wrapDBError(request.error, 'READ_ALL'));
-    });
+    return storage.getAllCases();
 };
 
 // --- Advanced Error Diagnostics ---
@@ -1306,6 +1232,31 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
             setErrorInfo(diag);
         }
     };
+    
+    // Export all data for desktop backup (JSON format)
+    const handleExportAllData = async () => {
+        try {
+            const exportData = await storage.exportAllData();
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `verum-omnis-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error('Export failed', e);
+            setErrorInfo({
+                userMessage: 'Failed to export data',
+                technicalDetails: String(e),
+                suggestedFix: 'Check browser console for details',
+                code: 'EXPORT_ERROR'
+            });
+        }
+    };
 
     const renderMarkdown = (text: string) => {
         return { __html: marked.parse(text, { breaks: true, gfm: true }) as string };
@@ -1334,6 +1285,9 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                             <button onClick={() => { setCaseId(''); setCurrentView('analysis'); }} style={styles.button}>Start New Analysis</button>
                             {savedCases.length > 0 && (
                                 <button onClick={() => setCurrentView('caseList')} style={styles.secondaryButton}>Open Case Repository ({savedCases.length})</button>
+                            )}
+                            {savedCases.length > 0 && (
+                                <button onClick={handleExportAllData} style={styles.secondaryButton} title="Export all data for desktop backup">Export Backup</button>
                             )}
                         </div>
                         <div style={styles.welcomeFooter}>
