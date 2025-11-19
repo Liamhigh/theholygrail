@@ -1,0 +1,6 @@
+72f6c9b fix: Update APK build workflow to use manual asset copy
+c79485f feat: Configure Firebase deployment with API key and unified storage
+be30feb feat: Enhanced case management with binary context and narrative indexing
+ff16288 feat: Add Verum Omnis V5 Forensic Engine with full APK support
+2952b09 Add README for Verum Omnis forensic engine setup
+00d30b7 Add files via upload
