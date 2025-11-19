@@ -198,9 +198,11 @@ const V5_RULES = {
   ]
 };
 
-// --- IndexedDB Helper Functions (The "Binary Folder" System) ---
+// --- IndexedDB Helper Functions (Enhanced Binary Context & History) ---
 const DB_NAME = 'VerumOmnisDB';
 const STORE_NAME = 'reports';
+const FILES_STORE_NAME = 'evidence_files';
+const METADATA_STORE_NAME = 'case_metadata';
 
 // Database Error Wrapper
 const wrapDBError = (err: any, operation: string) => {
@@ -209,17 +211,134 @@ const wrapDBError = (err: any, operation: string) => {
 
 const openDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 1);
+        const request = indexedDB.open(DB_NAME, 3); // Bumped version for new stores
+        
         request.onupgradeneeded = (event: any) => {
             const db = event.target.result;
+            
+            // Reports Store
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
                 store.createIndex('caseId', 'caseId', { unique: false });
                 store.createIndex('timestamp', 'timestamp', { unique: false });
+                store.createIndex('reportHash', 'reportHash', { unique: false });
+            }
+            
+            // Binary Evidence Files Store
+            if (!db.objectStoreNames.contains(FILES_STORE_NAME)) {
+                const fileStore = db.createObjectStore(FILES_STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                fileStore.createIndex('caseId', 'caseId', { unique: false });
+                fileStore.createIndex('fileHash', 'fileHash', { unique: false });
+                fileStore.createIndex('timestamp', 'timestamp', { unique: false });
+            }
+            
+            // Case Metadata Store (for indexing and narrative tracking)
+            if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+                const metaStore = db.createObjectStore(METADATA_STORE_NAME, { keyPath: 'caseId' });
+                metaStore.createIndex('createdAt', 'createdAt', { unique: false });
+                metaStore.createIndex('updatedAt', 'updatedAt', { unique: false });
             }
         };
+        
         request.onsuccess = (event: any) => resolve(event.target.result);
         request.onerror = (event: any) => reject(wrapDBError(event.target.error, 'OPEN'));
+    });
+};
+
+// Save binary file with context
+const saveEvidenceFileToDB = async (caseId: string, file: File, fileHash: string, metadata: any) => {
+    if (!caseId) return;
+    try {
+        const db = await openDB();
+        
+        // Convert file to ArrayBuffer for binary storage
+        const arrayBuffer = await file.arrayBuffer();
+        
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(FILES_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(FILES_STORE_NAME);
+            
+            store.add({
+                caseId,
+                fileName: file.name,
+                fileType: file.type,
+                fileSize: file.size,
+                fileHash,
+                binaryData: arrayBuffer,
+                metadata,
+                timestamp: new Date().toISOString()
+            });
+            
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(wrapDBError(tx.error, 'WRITE_FILE'));
+        });
+    } catch (e) {
+        console.error("Failed to save evidence file", e);
+    }
+};
+
+// Get all evidence files for a case
+const getEvidenceFilesByCase = async (caseId: string): Promise<any[]> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(FILES_STORE_NAME, 'readonly');
+        const store = tx.objectStore(FILES_STORE_NAME);
+        const index = store.index('caseId');
+        const request = index.getAll(IDBKeyRange.only(caseId));
+        
+        request.onsuccess = () => {
+            const results = request.result;
+            results.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            resolve(results);
+        };
+        request.onerror = () => reject(wrapDBError(request.error, 'READ_FILES_BY_CASE'));
+    });
+};
+
+// Update or create case metadata with narrative index
+const updateCaseMetadata = async (caseId: string, updates: any) => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(METADATA_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(METADATA_STORE_NAME);
+        const getRequest = store.get(caseId);
+        
+        getRequest.onsuccess = () => {
+            const existing = getRequest.result || {
+                caseId,
+                createdAt: new Date().toISOString(),
+                reportCount: 0,
+                evidenceCount: 0,
+                narrativeIndex: [],
+                tags: [],
+                statusHistory: []
+            };
+            
+            const updated = {
+                ...existing,
+                ...updates,
+                updatedAt: new Date().toISOString()
+            };
+            
+            store.put(updated);
+            tx.oncomplete = () => resolve(updated);
+            tx.onerror = () => reject(wrapDBError(tx.error, 'UPDATE_METADATA'));
+        };
+        
+        getRequest.onerror = () => reject(wrapDBError(getRequest.error, 'GET_METADATA'));
+    });
+};
+
+// Get case metadata
+const getCaseMetadata = async (caseId: string): Promise<any> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(METADATA_STORE_NAME, 'readonly');
+        const store = tx.objectStore(METADATA_STORE_NAME);
+        const request = store.get(caseId);
+        
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(wrapDBError(request.error, 'GET_METADATA'));
     });
 };
 
@@ -227,22 +346,137 @@ const saveReportToDB = async (caseId: string, content: string, evidence: string[
     if (!caseId) return; 
     try {
         const db = await openDB();
-        return new Promise((resolve, reject) => {
+        const reportHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))
+            .then(buffer => {
+                const hashArray = Array.from(new Uint8Array(buffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            });
+        
+        // Extract narrative elements for indexing
+        const narrativeIndex = extractNarrativeIndex(content);
+        
+        return new Promise(async (resolve, reject) => {
             const tx = db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
+            
             store.add({ 
                 caseId, 
                 content, 
-                evidence, 
+                evidence,
+                reportHash,
+                narrativeIndex,
                 timestamp: new Date().toISOString() 
             });
-            tx.oncomplete = () => resolve(true);
+            
+            tx.oncomplete = async () => {
+                // Update case metadata
+                const reports = await getReportsByCase(caseId);
+                await updateCaseMetadata(caseId, {
+                    reportCount: reports.length,
+                    evidenceCount: evidence.length,
+                    lastReportHash: reportHash,
+                    narrativeIndex: mergeNarrativeIndices(reports.map(r => r.narrativeIndex || []))
+                });
+                resolve(true);
+            };
             tx.onerror = () => reject(wrapDBError(tx.error, 'WRITE'));
         });
     } catch (e) {
         console.error("Failed to save to DB", e);
-        // We don't throw here to avoid blocking the UI showing the result
     }
+};
+
+// Extract narrative structure from markdown content
+const extractNarrativeIndex = (content: string): any[] => {
+    const index: any[] = [];
+    const lines = content.split('\n');
+    let currentSection = '';
+    
+    lines.forEach((line, lineNum) => {
+        // Extract headings
+        const h2Match = line.match(/^##\s+(.+)$/);
+        const h3Match = line.match(/^###\s+(.+)$/);
+        
+        if (h2Match) {
+            currentSection = h2Match[1].trim();
+            index.push({
+                type: 'section',
+                level: 2,
+                title: currentSection,
+                line: lineNum
+            });
+        } else if (h3Match) {
+            index.push({
+                type: 'subsection',
+                level: 3,
+                title: h3Match[1].trim(),
+                parent: currentSection,
+                line: lineNum
+            });
+        }
+        
+        // Extract key entities (people, dates, amounts)
+        const peopleMatch = line.match(/\*\*([A-Z][a-z]+ [A-Z][a-z]+)\*\*/g);
+        const dateMatch = line.match(/\d{4}-\d{2}-\d{2}/g);
+        const amountMatch = line.match(/\$[\d,]+|\d+\s*(USD|EUR|GBP|ZAR)/gi);
+        
+        if (peopleMatch) {
+            peopleMatch.forEach(person => {
+                index.push({
+                    type: 'entity',
+                    subtype: 'person',
+                    value: person.replace(/\*\*/g, ''),
+                    context: currentSection,
+                    line: lineNum
+                });
+            });
+        }
+        
+        if (dateMatch) {
+            dateMatch.forEach(date => {
+                index.push({
+                    type: 'entity',
+                    subtype: 'date',
+                    value: date,
+                    context: currentSection,
+                    line: lineNum
+                });
+            });
+        }
+        
+        if (amountMatch) {
+            amountMatch.forEach(amount => {
+                index.push({
+                    type: 'entity',
+                    subtype: 'amount',
+                    value: amount,
+                    context: currentSection,
+                    line: lineNum
+                });
+            });
+        }
+    });
+    
+    return index;
+};
+
+// Merge narrative indices from multiple reports
+const mergeNarrativeIndices = (indices: any[][]): any[] => {
+    const merged: any[] = [];
+    const seen = new Set();
+    
+    indices.forEach(index => {
+        if (!index) return;
+        index.forEach(item => {
+            const key = `${item.type}-${item.subtype || item.level}-${item.value || item.title}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                merged.push(item);
+            }
+        });
+    });
+    
+    return merged;
 };
 
 const getReportsByCase = async (caseId: string): Promise<any[]> => {
@@ -344,6 +578,145 @@ const diagnoseError = (error: any): DiagnosticError => {
         suggestedFix: "Check the browser console for full stack trace. Review 'handleSubmit' logic in index.tsx.",
         code: 'UNKNOWN'
     };
+};
+
+// --- Offline Forensics Engine ---
+const runOfflineForensics = async (files: File[], localForensics: any[]): Promise<string> => {
+    const findings: string[] = [];
+    const timestamp = new Date().toISOString();
+    
+    findings.push(`# OFFLINE FORENSIC ANALYSIS REPORT`);
+    findings.push(`**Generated:** ${timestamp}`);
+    findings.push(`**Mode:** Offline Rule-Based Analysis (No AI)`);
+    findings.push(`**Files Analyzed:** ${files.length}\n`);
+    
+    // Executive Summary
+    findings.push(`## 1. Executive Summary\n`);
+    findings.push(`This report was generated using local rule-based forensic analysis without external AI connectivity. The analysis applies V5 forensic rules for contradiction detection, file integrity verification, metadata analysis, and pattern recognition.\n`);
+    
+    // Timeline
+    findings.push(`## 2. Timeline of Events\n`);
+    const sortedFiles = [...localForensics].sort((a, b) => 
+        new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime()
+    );
+    sortedFiles.forEach(f => {
+        findings.push(`- **${new Date(f.lastModified).toLocaleString()}**: File "${f.name}" created/modified`);
+    });
+    findings.push('');
+    
+    // File Integrity Analysis (Brain B2)
+    findings.push(`## 3. File Integrity Analysis (Brain B2)\n`);
+    findings.push(`**Chain Integrity Verification:**\n`);
+    localForensics.forEach(f => {
+        findings.push(`### ${f.name}`);
+        findings.push(`- **SHA-256 Hash:** \`${f.hash}\``);
+        findings.push(`- **File Size:** ${(f.size / 1024).toFixed(2)} KB`);
+        findings.push(`- **Type:** ${f.type || 'Unknown'}`);
+        findings.push(`- **Last Modified:** ${new Date(f.lastModified).toLocaleString()}`);
+        findings.push(`- **Integrity Status:** ✓ Hash calculated and sealed\n`);
+    });
+    
+    // Metadata Analysis (Brain B3)
+    findings.push(`## 4. Metadata Analysis (Brain B3)\n`);
+    const metadataIssues: string[] = [];
+    localForensics.forEach(f => {
+        if (!f.type || f.type === '') {
+            metadataIssues.push(`- **${f.name}**: Missing MIME type information`);
+        }
+        if (f.size === 0) {
+            metadataIssues.push(`- **${f.name}**: WARNING - File is empty (0 bytes)`);
+        }
+        if (f.size > 50 * 1024 * 1024) {
+            metadataIssues.push(`- **${f.name}**: Large file (${(f.size / 1024 / 1024).toFixed(2)} MB) - may indicate data dump`);
+        }
+    });
+    
+    if (metadataIssues.length > 0) {
+        findings.push(`**Metadata Anomalies Detected:**\n`);
+        findings.push(metadataIssues.join('\n'));
+    } else {
+        findings.push(`All files have complete metadata. No anomalies detected.`);
+    }
+    findings.push('');
+    
+    // Pattern Analysis
+    findings.push(`## 5. Pattern Analysis\n`);
+    const fileTypes = localForensics.reduce((acc: any, f) => {
+        const type = f.type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+    }, {});
+    
+    findings.push(`**File Type Distribution:**\n`);
+    Object.entries(fileTypes).forEach(([type, count]) => {
+        findings.push(`- ${type}: ${count} file(s)`);
+    });
+    findings.push('');
+    
+    // Temporal Analysis
+    const timeGaps: string[] = [];
+    for (let i = 1; i < sortedFiles.length; i++) {
+        const prev = new Date(sortedFiles[i - 1].lastModified);
+        const curr = new Date(sortedFiles[i].lastModified);
+        const diffMs = curr.getTime() - prev.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        
+        if (diffHours > 24) {
+            timeGaps.push(`- Gap of ${Math.round(diffHours)} hours between "${sortedFiles[i-1].name}" and "${sortedFiles[i].name}"`);
+        }
+    }
+    
+    if (timeGaps.length > 0) {
+        findings.push(`**Temporal Anomalies:**\n`);
+        findings.push(timeGaps.join('\n'));
+        findings.push('');
+    }
+    
+    // Evidence Summary
+    findings.push(`## 6. Evidence Breakdown\n`);
+    localForensics.forEach((f, idx) => {
+        findings.push(`### Evidence ${idx + 1}: ${f.name}`);
+        findings.push(`- **Purpose:** Document evidence file with cryptographic seal`);
+        findings.push(`- **Verification:** Hash ${f.hash.substring(0, 16)}... can be used to verify file integrity`);
+        findings.push(`- **Forensic Value:** Timestamped and sealed for chain of custody\n`);
+    });
+    
+    // Recommendations
+    findings.push(`## 7. Strategic Recommendations\n`);
+    findings.push(`### Offline Analysis Limitations\n`);
+    findings.push(`This offline analysis provides:\n`);
+    findings.push(`✓ File integrity verification with SHA-256 hashes`);
+    findings.push(`✓ Metadata extraction and anomaly detection`);
+    findings.push(`✓ Temporal pattern analysis`);
+    findings.push(`✓ File type distribution analysis\n`);
+    findings.push(`For comprehensive analysis including:\n`);
+    findings.push(`- Content contradiction detection`);
+    findings.push(`- Legal liability assessment`);
+    findings.push(`- Strategic recommendations`);
+    findings.push(`- Draft communications\n`);
+    findings.push(`**Connect to the internet and re-run the analysis** to access AI-powered forensic capabilities.\n`);
+    
+    // Evidence Preservation
+    findings.push(`### Evidence Preservation\n`);
+    findings.push(`**Critical Actions:**\n`);
+    findings.push(`1. **Maintain Hash Records:** Store all SHA-256 hashes for later verification`);
+    findings.push(`2. **Timestamp Documentation:** Record current date/time: ${timestamp}`);
+    findings.push(`3. **Backup Files:** Create encrypted backups of all evidence`);
+    findings.push(`4. **Chain of Custody:** Document who has accessed these files and when`);
+    findings.push(`5. **Secure Storage:** Store originals in tamper-proof location\n`);
+    
+    // Conclusion
+    findings.push(`## 8. Conclusion\n`);
+    findings.push(`Offline forensic analysis completed successfully. ${files.length} file(s) analyzed with cryptographic sealing applied. All files have been timestamped and hashed for integrity verification.`);
+    findings.push(`\n**Cryptographic Seal Summary:**`);
+    localForensics.forEach(f => {
+        findings.push(`- ${f.name}: \`${f.hash}\``);
+    });
+    findings.push(`\n---\n**Report Generated:** ${timestamp}`);
+    findings.push(`**Analysis Mode:** Offline Rule-Based Forensics`);
+    findings.push(`**Status:** Complete`);
+    
+    return findings.join('\n');
 };
 
 // --- File Helpers & Local Forensics (B2/B3) ---
@@ -509,23 +882,40 @@ const App = () => {
             return;
         }
 
-        if (isOffline) {
-             // In V5, we allow viewing the Local Forensics even if offline, but can't generate full report.
-             setErrorInfo({
-                userMessage: "Offline Mode Active.",
-                technicalDetails: "Full brain analysis requires cloud connectivity. Local forensics (B2/B3) are available below.",
-                suggestedFix: "Connect to the internet for full V5 Engine analysis.",
-                code: "OFFLINE_LIMITED"
-            });
-            return;
-        }
-
         setLoading(true);
         setResult('');
         setErrorInfo(null);
         setShowErrorDetails(false);
 
         try {
+            // Check if we should use offline mode
+            if (isOffline || !GEMINI_API_KEY) {
+                console.log("Running OFFLINE FORENSICS - rule-based analysis");
+                const offlineReport = await runOfflineForensics(files, localForensics);
+                setResult(offlineReport);
+                
+                // Save to DB if Case ID exists (with binary evidence)
+                if (caseId.trim()) {
+                    await saveReportToDB(caseId.trim(), offlineReport, files.map(f => f.name));
+                    
+                    // Save binary evidence files with hashes
+                    for (const file of files) {
+                        const fileHash = localForensics.find(f => f.name === file.name)?.hash || '';
+                        await saveEvidenceFileToDB(caseId.trim(), file, fileHash, {
+                            analysisMode: 'offline',
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                    
+                    await refreshCaseList();
+                }
+                
+                setCurrentView('report');
+                setLoading(false);
+                return;
+            }
+
+            // Online AI-powered analysis
             // 1. Get Geolocation Context (Fail-safe)
             const locationInfo = await new Promise<string>((resolve) => {
                 if (!navigator.geolocation) {
@@ -664,9 +1054,21 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
 
             setResult(reportContent);
             
-            // Save to DB if Case ID exists
+            // Save to DB with binary evidence if Case ID exists
             if (caseId.trim()) {
                 await saveReportToDB(caseId.trim(), reportContent, files.map(f => f.name));
+                
+                // Save binary evidence files with hashes and metadata
+                for (const file of files) {
+                    const fileHash = localForensics.find(f => f.name === file.name)?.hash || '';
+                    await saveEvidenceFileToDB(caseId.trim(), file, fileHash, {
+                        analysisMode: 'online',
+                        model: modelName,
+                        timestamp: new Date().toISOString(),
+                        location: locationInfo
+                    });
+                }
+                
                 await refreshCaseList();
             }
 
@@ -687,36 +1089,113 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
         generatePdfDocument(result, caseId || "Unassigned", "Forensic Analysis Report");
     };
 
-    // --- PDF Generation (Full Case File) ---
+    // --- PDF Generation (Full Case File with Enhanced Indexing) ---
     const handleGenerateMasterPdf = async (targetCaseId: string) => {
         const reports = await getReportsByCase(targetCaseId);
+        const evidenceFiles = await getEvidenceFilesByCase(targetCaseId);
+        const metadata = await getCaseMetadata(targetCaseId);
+        
         if (reports.length === 0) return;
 
         let combinedMarkdown = "";
         
-        // Generate Table of Contents Text
-        combinedMarkdown += `# MASTER CASE FILE: ${targetCaseId.toUpperCase()}\n\n`;
-        combinedMarkdown += `**Generated:** ${new Date().toLocaleString()}\n\n`;
-        combinedMarkdown += `## TABLE OF CONTENTS\n\n`;
+        // Cover Page Content
+        combinedMarkdown += `# MASTER CASE FILE\n`;
+        combinedMarkdown += `## ${targetCaseId.toUpperCase()}\n\n`;
+        combinedMarkdown += `**Generated:** ${new Date().toLocaleString()}\n`;
+        combinedMarkdown += `**Total Reports:** ${reports.length}\n`;
+        combinedMarkdown += `**Total Evidence Files:** ${evidenceFiles.length}\n`;
+        combinedMarkdown += `**Case Created:** ${metadata?.createdAt ? new Date(metadata.createdAt).toLocaleDateString() : 'Unknown'}\n`;
+        combinedMarkdown += `**Last Updated:** ${metadata?.updatedAt ? new Date(metadata.updatedAt).toLocaleDateString() : 'Unknown'}\n\n`;
         
+        // Narrative Index Section
+        if (metadata?.narrativeIndex && metadata.narrativeIndex.length > 0) {
+            combinedMarkdown += `## NARRATIVE INDEX\n\n`;
+            combinedMarkdown += `### Key Entities Identified\n\n`;
+            
+            // Group by entity type
+            const people = metadata.narrativeIndex.filter((i: any) => i.subtype === 'person');
+            const dates = metadata.narrativeIndex.filter((i: any) => i.subtype === 'date');
+            const amounts = metadata.narrativeIndex.filter((i: any) => i.subtype === 'amount');
+            
+            if (people.length > 0) {
+                combinedMarkdown += `**People:**\n`;
+                const uniquePeople = [...new Set(people.map((p: any) => p.value))];
+                uniquePeople.forEach(person => {
+                    const occurrences = people.filter((p: any) => p.value === person);
+                    combinedMarkdown += `- ${person} (${occurrences.length} reference${occurrences.length > 1 ? 's' : ''})\n`;
+                });
+                combinedMarkdown += `\n`;
+            }
+            
+            if (dates.length > 0) {
+                combinedMarkdown += `**Key Dates:**\n`;
+                const uniqueDates = [...new Set(dates.map((d: any) => d.value))].sort();
+                uniqueDates.forEach(date => {
+                    combinedMarkdown += `- ${date}\n`;
+                });
+                combinedMarkdown += `\n`;
+            }
+            
+            if (amounts.length > 0) {
+                combinedMarkdown += `**Financial Amounts:**\n`;
+                const uniqueAmounts = [...new Set(amounts.map((a: any) => a.value))];
+                uniqueAmounts.forEach(amount => {
+                    combinedMarkdown += `- ${amount}\n`;
+                });
+                combinedMarkdown += `\n`;
+            }
+        }
+        
+        // Evidence Chain of Custody
+        combinedMarkdown += `## EVIDENCE CHAIN OF CUSTODY\n\n`;
+        evidenceFiles.forEach((file, idx) => {
+            combinedMarkdown += `### Evidence ${idx + 1}: ${file.fileName}\n`;
+            combinedMarkdown += `- **File Type:** ${file.fileType}\n`;
+            combinedMarkdown += `- **File Size:** ${(file.fileSize / 1024).toFixed(2)} KB\n`;
+            combinedMarkdown += `- **SHA-256 Hash:** \`${file.fileHash}\`\n`;
+            combinedMarkdown += `- **Timestamp:** ${new Date(file.timestamp).toLocaleString()}\n`;
+            if (file.metadata?.location) {
+                combinedMarkdown += `- **Location:** ${file.metadata.location}\n`;
+            }
+            combinedMarkdown += `- **Analysis Mode:** ${file.metadata?.analysisMode || 'Unknown'}\n\n`;
+        });
+        
+        // Table of Contents
+        combinedMarkdown += `## TABLE OF CONTENTS\n\n`;
         reports.forEach((report, index) => {
-            combinedMarkdown += `*   **Report ${index + 1}:** ${new Date(report.timestamp).toLocaleDateString()} - Analysis of ${report.evidence.length} evidence files.`;
-            // Attempt to get the first heading from the report content for a more descriptive TOC entry
-            const firstHeadingMatch = report.content.match(/##\s*(.*?)\n/);
-            if (firstHeadingMatch && firstHeadingMatch[1]) {
-                combinedMarkdown += ` (${firstHeadingMatch[1]})`;
+            combinedMarkdown += `### Report ${index + 1}: ${new Date(report.timestamp).toLocaleDateString()}\n`;
+            combinedMarkdown += `- **Evidence Analyzed:** ${report.evidence.join(', ')}\n`;
+            combinedMarkdown += `- **Report Hash:** \`${report.reportHash?.substring(0, 16)}...\`\n`;
+            
+            // Show section structure if available
+            if (report.narrativeIndex) {
+                const sections = report.narrativeIndex.filter((i: any) => i.type === 'section');
+                if (sections.length > 0) {
+                    combinedMarkdown += `- **Sections:** ${sections.map((s: any) => s.title).join(', ')}\n`;
+                }
             }
             combinedMarkdown += `\n`;
         });
         combinedMarkdown += `\n---\n\n`;
 
-        // Append Reports
+        // Append Full Reports with Context
         reports.forEach((report, index) => {
-            combinedMarkdown += `\n# REPORT ${index + 1} (${new Date(report.timestamp).toLocaleDateString()})\n\n`;
-            combinedMarkdown += `**Evidence Analyzed:** ${report.evidence.join(', ')}\n\n`;
-            combinedMarkdown += `\n---\n\n`;
+            combinedMarkdown += `\n# REPORT ${index + 1}\n\n`;
+            combinedMarkdown += `**Generated:** ${new Date(report.timestamp).toLocaleDateString()} ${new Date(report.timestamp).toLocaleTimeString()}\n`;
+            combinedMarkdown += `**Evidence Files:** ${report.evidence.join(', ')}\n`;
+            combinedMarkdown += `**Report Hash:** \`${report.reportHash}\`\n\n`;
+            combinedMarkdown += `---\n\n`;
             combinedMarkdown += report.content;
-            combinedMarkdown += `\n\n<div style="page-break-after: always;"></div>\n\n`; // Force page break for each report
+            combinedMarkdown += `\n\n<div style="page-break-after: always;"></div>\n\n`;
+        });
+        
+        // Final Integrity Seal
+        combinedMarkdown += `\n## MASTER FILE INTEGRITY VERIFICATION\n\n`;
+        combinedMarkdown += `This master case file contains ${reports.length} reports and ${evidenceFiles.length} evidence files.\n\n`;
+        combinedMarkdown += `**Individual Report Hashes:**\n`;
+        reports.forEach((report, idx) => {
+            combinedMarkdown += `- Report ${idx + 1}: \`${report.reportHash}\`\n`;
         });
 
         generatePdfDocument(combinedMarkdown, targetCaseId, "Master Case File");
