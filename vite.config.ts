@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'Verum Omnis - Forensic Engine',
           short_name: 'Verum Omnis',
-          description: 'Autonomous legal verification and forensic analysis engine.',
+          description: 'Free forensic analysis engine for private citizens worldwide. 100% on-device, no backend server.',
           theme_color: '#010409',
           background_color: '#010409',
           display: 'standalone',

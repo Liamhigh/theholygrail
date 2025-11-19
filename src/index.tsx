@@ -6,6 +6,22 @@ import jsPDF from 'jspdf';
 import { marked } from 'marked';
 import { storage } from './storage';
 
+// ============================================================================
+// FORENSIC ENGINE ARCHITECTURE
+// ============================================================================
+// This is a CLIENT-SIDE ONLY forensic analysis engine with NO BACKEND SERVER.
+// 
+// How it works:
+// 1. Evidence files uploaded by user → stored in IndexedDB on their device
+// 2. User clicks "Analyze" → Gemini API called DIRECTLY from browser/app
+// 3. API key is embedded in the build (web or APK) at compile time
+// 4. Evidence files NEVER leave the device - only text prompts sent to Gemini
+// 5. Analysis results stored locally on device
+// 6. Reports generated as PDFs locally on device
+//
+// Both web and APK versions work identically - all forensics on device.
+// ============================================================================
+
 // --- Gemini API Key Constant ---
 // Read from Vite env so it works for web + APK builds
 const GEMINI_API_KEY = import.meta.env.VITE_API_KEY || '';

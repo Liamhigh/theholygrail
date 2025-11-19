@@ -4,15 +4,29 @@ Verum Omnis is a powerful, stateless, and secure forensic analysis engine. It le
 
 Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user data is never uploaded or stored on external servers. It is designed for cross-platform use, functioning seamlessly in modern web browsers and as a native Android application via Capacitor.
 
+**🌍 Free for Every Private Citizen on the Planet** - This forensic engine is provided free of charge to all private citizens worldwide, empowering individuals with professional-grade forensic analysis tools for personal legal matters.
+
+## **No Backend Architecture - Forensics on Your Device**
+
+**This application does NOT use a backend server for forensic analysis.** All forensic processing, evidence analysis, and report generation happen 100% on the user's device (browser or mobile app). Your evidence files never leave your device during the forensic analysis process.
+
+- ✅ **All forensic analysis runs locally** on your device using the Google Gemini API directly from the browser
+- ✅ **Evidence files stay on your device** - stored in IndexedDB (local browser storage)
+- ✅ **Reports are generated locally** - PDF creation happens in-browser
+- ✅ **No server-side processing** - no backend receives or processes your evidence
+- ⚠️ **Optional metadata sync only** - Firebase integration (if configured) only syncs case metadata, never evidence files or forensic analysis results
+
 ## Key Features
 
--   **On-Device AI Processing:** All analysis is performed securely in the browser, guaranteeing privacy and confidentiality.
+-   **🆓 Free for All Private Citizens:** Available at no cost to every private citizen worldwide for personal legal matters.
+-   **100% Client-Side Forensic Processing:** All forensic analysis is performed securely on your device (in the browser or mobile app), guaranteeing privacy and confidentiality. No backend server processes your evidence.
 -   **Multi-modal Evidence Analysis:** Supports a wide range of file types including text, `.txt`, `.pdf`, and common image formats (`.png`, `.jpg`, etc.).
 -   **Dynamic Model Selection:** Automatically utilizes `gemini-2.5-flash` for general cases and `gemini-2.5-pro` with an enhanced thinking budget for more complex evidence like PDFs.
 -   **Structured Forensic Reports:** Generates highly-structured reports in Markdown, detailing executive summaries, timelines, liability assessments, strategic recommendations, and more.
 -   **Cryptographically Sealed PDFs:** Allows users to download reports as PDFs secured with a SHA-256 cryptographic seal, verifying the document's integrity.
+-   **Device-Only Storage:** Evidence and reports are stored locally in IndexedDB on your device - never uploaded to external servers.
 -   **Offline-First & Installable:** Fully functional without an internet connection for case preparation. It can be installed on any device as a PWA.
--   **Production Ready:** Configured for robust deployment on Firebase Hosting and for building into a native Android application with Capacitor.
+-   **Production Ready:** Configured for deployment on Firebase Hosting (static files only) and for building into a native Android application with Capacitor.
 
 ## Tech Stack
 
@@ -20,8 +34,29 @@ Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user 
 -   **AI:** Google Gemini API (`@google/genai`)
 -   **PDF Generation:** jsPDF
 -   **Native Runtime:** Capacitor
--   **Hosting:** Firebase Hosting
+-   **Hosting:** Firebase Hosting (static files only)
 -   **CI/CD:** GitHub Actions
+
+## Architecture: How Forensics Work on Your Device
+
+### Web Version (Browser)
+1. User uploads evidence files → stored in browser's IndexedDB
+2. Click "Analyze" → Gemini API called directly from browser (API key embedded at build time)
+3. AI analysis happens via Gemini's servers, but **evidence files never leave your device**
+4. Report generated locally in browser → can be exported as PDF
+
+### APK Version (Android App)
+1. User uploads evidence files → stored in device's IndexedDB
+2. Click "Analyze" → Gemini API called directly from the app (API key embedded in APK at build time)
+3. AI analysis happens via Gemini's servers, but **evidence files never leave your device**
+4. Report generated locally on device → can be exported as PDF
+
+### Key Points:
+- **No backend server** - The app doesn't have or need a backend server for forensic processing
+- **API key embedded at build time** - Both web and APK builds include the Gemini API key via `VITE_API_KEY`
+- **Evidence stays local** - Files are stored in IndexedDB and never uploaded to any server
+- **Direct API calls** - The app calls Google Gemini API directly from browser/device
+- **Optional Firebase** - If configured, Firebase only syncs case metadata (not evidence files or analysis results)
 
 ## Project Structure
 
@@ -60,7 +95,11 @@ Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user 
     ```
 
 3.  **API Key Configuration:**
-    The application is designed to use an API key provided by its execution environment. In development environments like AI Studio, `process.env.API_KEY` is automatically injected.
+    Create a `.env` file in the root directory and add your Google Gemini API key:
+    ```
+    VITE_API_KEY=your_gemini_api_key_here
+    ```
+    This key is used for AI-powered forensic analysis and is embedded into builds (both web and APK) at build time.
 
 4.  **Run the Development Server:**
     ```bash
@@ -90,27 +129,33 @@ For the workflow to succeed, you must configure the following secrets in your Gi
 
 ## Mobile Development (Capacitor)
 
-To build and run the application as a native Android app:
+The APK is a fully functional forensic engine that runs entirely on the device. To build the Android app:
 
-1.  **Build the Web Assets:**
-    Ensure you have a fresh production build.
+1.  **Configure API Key:**
+    Ensure your `.env` file contains your Gemini API key (this will be embedded in the APK at build time):
+    ```
+    VITE_API_KEY=your_gemini_api_key_here
+    ```
+
+2.  **Build the Web Assets:**
+    Ensure you have a fresh production build with the API key embedded.
     ```bash
     npm run build
     ```
 
-2.  **Initialize the Android Platform:**
+3.  **Initialize the Android Platform (First time only):**
     This only needs to be done once to add the native Android project.
     ```bash
     npx cap add android
     ```
 
-3.  **Sync Web Assets with Android Project:**
+4.  **Sync Web Assets with Android Project:**
     This command copies your web build from `dist/` into the native Android project. Run this command every time you update your web code.
     ```bash
     npx cap sync
     ```
 
-4.  **Open in Android Studio:**
+5.  **Open in Android Studio:**
     ```bash
     npx cap open android
     ```

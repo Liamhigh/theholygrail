@@ -1,5 +1,16 @@
 // Storage Layer - Works on all devices (Web, Android, iOS)
-// Priority: IndexedDB (primary) -> LocalStorage (fallback) -> Firebase (optional sync)
+// 
+// CRITICAL ARCHITECTURE NOTE:
+// ===========================
+// ALL FORENSIC ANALYSIS HAPPENS ON THE USER'S DEVICE - NO BACKEND SERVER
+// 
+// Storage Priority:
+// 1. IndexedDB (primary) - Stores ALL evidence files and forensic reports LOCALLY on device
+// 2. Firebase (optional) - If configured, ONLY syncs case metadata (names, dates)
+//                        - NEVER syncs evidence files or forensic analysis results
+//                        - Evidence binary data stays on device only
+//
+// This ensures complete privacy: your evidence never leaves your device.
 
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore, doc, setDoc, Timestamp } from 'firebase/firestore';
@@ -162,7 +173,11 @@ class IndexedDBStorage implements StorageAdapter {
     }
 }
 
-// Firebase Sync Layer (Optional - for desktop/multi-device sync)
+// Firebase Sync Layer (Optional - for metadata sync only)
+// 
+// IMPORTANT: This layer ONLY syncs case metadata (case names, timestamps, etc.)
+// Evidence files and forensic analysis results are NEVER synced to Firebase.
+// All evidence binary data remains on the user's device only.
 class FirebaseSync {
     private db: Firestore | null = null;
     
@@ -192,12 +207,13 @@ class FirebaseSync {
         if (!this.db) return;
         try {
             const evidenceRef = doc(this.db, 'cases', caseId, 'evidence', data.id || Date.now().toString());
-            // Don't sync large binary data to Firebase - only metadata
+            // CRITICAL: Don't sync binary evidence data to Firebase - only metadata
+            // Evidence files remain on the user's device only for privacy
             const { binaryData, ...metadata } = data;
             await setDoc(evidenceRef, {
                 ...metadata,
                 syncedAt: Timestamp.now(),
-                note: 'Binary data stored locally only'
+                note: 'Binary evidence data stored locally on device only - not synced to cloud'
             });
         } catch (e) {
             console.warn('Firebase evidence sync failed', e);
