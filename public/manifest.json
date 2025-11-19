@@ -1,7 +1,7 @@
 {
   "name": "Verum Omnis - Forensic Engine",
   "short_name": "Verum Omnis",
-  "description": "Free forensic analysis engine for private citizens worldwide. Autonomous legal verification and forensic analysis - 100% on-device, no backend server.",
+  "description": "Free forensic analysis engine for private citizens worldwide. Features contradiction detection, legal validation, cryptographic sealing, and triple verification. 100% on-device, zero data collection.",
   "theme_color": "#010409",
   "background_color": "#010409",
   "display": "standalone",
