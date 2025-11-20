@@ -1294,6 +1294,14 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
             <main style={styles.mainContainer} aria-live="polite" aria-busy={loading}>
                 {currentView === 'welcome' && (
                     <div style={styles.viewContainer}>
+                        <div style={{fontSize: '1.2rem', color: '#a5d6ff', marginBottom: '8px', textAlign: 'center'}}>
+                            {(() => {
+                                const hour = new Date().getHours();
+                                if (hour < 12) return '👋 Good morning!';
+                                if (hour < 18) return '👋 Good afternoon!';
+                                return '👋 Good evening!';
+                            })()}
+                        </div>
                         <h1 style={styles.welcomeTitle}>Universal Access to Justice</h1>
                         <div style={{fontSize: '1.5rem', color: '#58a6ff', fontWeight: 500, margin: '16px 0', textAlign: 'center'}}>
                             🌍 Historic Breakthrough
