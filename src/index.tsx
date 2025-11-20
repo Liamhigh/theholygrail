@@ -1,3 +1,4 @@
+import LicensingNotice from "./components/LicensingNotice";
 import LegalAdvice from "./components/LegalAdvice";
 /// <reference types="vite/client" />
 import React, { useState, useEffect, useCallback } from 'react';
