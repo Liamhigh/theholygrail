@@ -1,0 +1,38 @@
+name: Build Android APK (Prime Engine)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build_apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - run: npm ci
+
+      - name: Build web assets for APK
+        run: npm run build
+
+      - name: Copy dist into Android assets
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          cp -r dist/* android/app/src/main/assets/public/
+
+      - name: Build signed APK
+        run: cd android && ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Verum_Omnis_Prime_Release_APK
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
