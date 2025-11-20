@@ -22,3 +22,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android build artifacts (but keep final APKs in root)
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+
+# Environment files (keep templates)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Firebase cache
+.firebase/

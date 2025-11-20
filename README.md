@@ -70,7 +70,9 @@ Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user 
 
 ## Build and Deployment
 
-### Production Web Build
+For complete deployment instructions, including Firebase Hosting setup, Android APK building, and CI/CD configuration, see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+
+### Quick Start - Production Web Build
 
 To create an optimized production build of the web app:
 
@@ -82,11 +84,23 @@ The output files will be generated in the `dist/` directory.
 
 ### Firebase Hosting
 
-This project is configured for continuous deployment to Firebase Hosting. Every push to the `main` branch triggers the GitHub Actions workflow defined in `.github/workflows/firebase-hosting.yml`. This workflow automatically builds and deploys the application.
+This project is configured for continuous deployment to Firebase Hosting. Every push to the `main` branch triggers the GitHub Actions workflow that automatically builds and deploys the application.
 
-For the workflow to succeed, you must configure the following secrets in your GitHub repository settings:
+Required secrets (configured in GitHub repository settings):
 -   `VITE_API_KEY`: Your Google Gemini API key.
--   `FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_ENGINE`: The JSON content of your Firebase service account key.
+-   `FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_V2`: The JSON content of your Firebase service account key.
+
+### Android APK Build
+
+To build the Android APK:
+
+```bash
+npm run build           # Build web assets
+npx cap sync android    # Sync to Android project
+cd android && ./gradlew assembleRelease
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
 
 ## Mobile Development (Capacitor)
 
