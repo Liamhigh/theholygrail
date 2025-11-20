@@ -1,3 +1,4 @@
+import ThreatPage from "./pages/threat";
 import InstitutionPage from "./pages/institution";
 import TaxPage from "./pages/tax";
 import GenerateReportButton from "./components/GenerateReportButton";
