@@ -1,3 +1,5 @@
+import CaseFile from "./pages/CaseFile";
+import LocalSaveButton from "./components/LocalSaveButton";
 import LicensingNotice from "./components/LicensingNotice";
 import LegalAdvice from "./components/LegalAdvice";
 /// <reference types="vite/client" />
@@ -728,6 +730,8 @@ const App = () => {
         }
 
         return () => {
+    {page === "casefile" && <CaseFile />} 
+
     {page === "legal" && <LegalAdvice />} 
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
@@ -1269,6 +1273,8 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
     };
 
     return (
+    {page === "casefile" && <CaseFile />} 
+
     {page === "legal" && <LegalAdvice />} 
         <>
             <header style={styles.header}>
