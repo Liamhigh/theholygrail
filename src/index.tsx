@@ -8,7 +8,7 @@ import { storage } from './storage';
 
 // --- Gemini API Key Constant ---
 // Read from Vite env so it works for web + APK builds
-const GEMINI_API_KEY = import.meta.env.VITE_API_KEY || '';
+const GEMINI_API_KEY = "offline-mode";
 
 // --- V5 Rules Definition (Full Gift Rules) ---
 const V5_RULES = {
