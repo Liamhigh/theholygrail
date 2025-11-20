@@ -1,3 +1,4 @@
+import VaultPage from "./pages/vault";
 import ThreatPage from "./pages/threat";
 import InstitutionPage from "./pages/institution";
 import TaxPage from "./pages/tax";
