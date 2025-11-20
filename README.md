@@ -60,7 +60,17 @@ Built as a Progressive Web App (PWA), it runs entirely on-device, ensuring user 
     ```
 
 3.  **API Key Configuration:**
-    The application is designed to use an API key provided by its execution environment. In development environments like AI Studio, `process.env.API_KEY` is automatically injected.
+    Create a `.env.production` file in the root directory (copy from `.env.example`):
+    ```bash
+    cp .env.example .env.production
+    ```
+    Then edit `.env.production` and add your Google Gemini API key:
+    ```
+    VITE_API_KEY=your_actual_gemini_api_key_here
+    ```
+    Get your API key from: https://makersuite.google.com/app/apikey
+    
+    **Important:** Never commit `.env.production` or `.env` files with actual API keys to version control!
 
 4.  **Run the Development Server:**
     ```bash
@@ -82,11 +92,11 @@ The output files will be generated in the `dist/` directory.
 
 ### Firebase Hosting
 
-This project is configured for continuous deployment to Firebase Hosting. Every push to the `main` branch triggers the GitHub Actions workflow defined in `.github/workflows/firebase-hosting.yml`. This workflow automatically builds and deploys the application.
+This project is configured for continuous deployment to Firebase Hosting. Every push to the `main` branch triggers the GitHub Actions workflow defined in `.github/workflows/production.yml`. This workflow automatically builds and deploys the application.
 
 For the workflow to succeed, you must configure the following secrets in your GitHub repository settings:
 -   `VITE_API_KEY`: Your Google Gemini API key.
--   `FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_ENGINE`: The JSON content of your Firebase service account key.
+-   `FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_V2`: The Firebase service account token for deployment.
 
 ## Mobile Development (Capacitor)
 

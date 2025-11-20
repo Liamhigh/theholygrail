@@ -20,6 +20,10 @@ jobs:
 
       - run: npm ci
 
+      - name: Create .env.production for APK build
+        run: |
+          echo "VITE_API_KEY=${{ secrets.VITE_API_KEY }}" > .env.production
+
       - name: Build web assets for APK
         run: npm run build
 
