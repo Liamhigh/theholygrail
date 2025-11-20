@@ -1,12 +1,3 @@
-import VaultPage from "./pages/vault";
-import ThreatPage from "./pages/threat";
-import InstitutionPage from "./pages/institution";
-import TaxPage from "./pages/tax";
-import GenerateReportButton from "./components/GenerateReportButton";
-import CaseFile from "./pages/CaseFile";
-import LocalSaveButton from "./components/LocalSaveButton";
-import LicensingNotice from "./components/LicensingNotice";
-import LegalAdvice from "./components/LegalAdvice";
 /// <reference types="vite/client" />
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -735,9 +726,6 @@ const App = () => {
         }
 
         return () => {
-    {page === "casefile" && <CaseFile />} 
-
-    {page === "legal" && <LegalAdvice />} 
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
@@ -1278,9 +1266,6 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
     };
 
     return (
-    {page === "casefile" && <CaseFile />} 
-
-    {page === "legal" && <LegalAdvice />} 
         <>
             <header style={styles.header}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer'}} onClick={() => setCurrentView('welcome')}>
@@ -1452,7 +1437,6 @@ Analyze the provided evidence with extreme prejudice and generate the report acc
                         )}
                         
                         <button onClick={handleSubmit} disabled={loading} style={{...styles.button, minWidth: '200px', cursor: loading ? 'wait' : 'pointer'}}>
-      <button id="legal-advice-button" onClick={() => setPage("legal")}>Legal Advice</button>
                             {loading ? <span style={styles.spinner} role="status" aria-label="Analyzing..."></span> : 'Run Forensic Analysis'}
                         </button>
                         
