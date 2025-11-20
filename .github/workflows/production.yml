@@ -9,14 +9,15 @@ jobs:
   build_and_deploy_web:
     name: Build Web & Deploy Firebase
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install Dependencies
         run: npm ci
@@ -34,13 +35,14 @@ jobs:
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_ENGINE }}'
-          channelId: live
           projectId: verum-omnis-engine
+          channelId: live
 
   build_android_apk:
     name: Build Android APK
     runs-on: ubuntu-latest
     needs: build_and_deploy_web
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -51,10 +53,10 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install Dependencies
         run: npm ci
