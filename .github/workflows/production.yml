@@ -1,27 +1,20 @@
-name: Deploy Verum Omnis Site
-
+name: Deploy to Firebase Hosting
 on:
   push:
     branches:
       - main
 
 jobs:
-  deploy:
+  build_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
 
       - name: Create .env.production
         run: |
-          echo "OPENAI_API_KEY=\${{ secrets.OPENAI_API_KEY }}" > .env.production
-          echo "VITE_OPENAI_API_KEY=\${{ secrets.OPENAI_API_KEY }}" >> .env.production
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env.production
           echo "MODE=production" >> .env.production
 
       - name: Install dependencies
@@ -35,4 +28,4 @@ jobs:
         with:
           args: deploy --only hosting
         env:
-          FIREBASE_TOKEN: \${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_V2 }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_V2 }}
