@@ -1,3 +1,4 @@
+import TaxPage from "./pages/tax";
 import GenerateReportButton from "./components/GenerateReportButton";
 import CaseFile from "./pages/CaseFile";
 import LocalSaveButton from "./components/LocalSaveButton";
