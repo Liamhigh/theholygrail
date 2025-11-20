@@ -34,8 +34,8 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_ENGINE }}'
-          projectId: verum-omnis-engine
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_V2 }}'
+          projectId: verum-omnis-v2
           channelId: live
           entryPoint: .
           expires: 7d
