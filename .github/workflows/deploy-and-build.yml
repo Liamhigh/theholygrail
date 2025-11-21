@@ -53,6 +53,7 @@ jobs:
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_V2 }}' > $HOME/gcloud-key.json
           export GOOGLE_APPLICATION_CREDENTIALS="$HOME/gcloud-key.json"
           firebase deploy --only functions --project verum-omnis-v2
+          rm -f $HOME/gcloud-key.json
 
   build-apk:
     name: Build Android APK
