@@ -34,13 +34,23 @@ fi
 # Create videos directory if it doesn't exist
 mkdir -p videos
 
+# Check if file already exists
+if [ -f "videos/$VIDEO_NAME" ]; then
+    echo "⚠️  Warning: videos/$VIDEO_NAME already exists"
+    read -p "Overwrite? (y/n): " OVERWRITE
+    if [ "$OVERWRITE" != "y" ] && [ "$OVERWRITE" != "Y" ]; then
+        echo "❌ Upload cancelled"
+        exit 1
+    fi
+fi
+
 # Copy video to videos directory
 echo "📂 Copying video to videos/ directory..."
 cp "$VIDEO_PATH" "videos/$VIDEO_NAME"
 
-# Add to git
+# Add to git (only the specific file)
 echo "➕ Adding to git..."
-git add videos/
+git add "videos/$VIDEO_NAME"
 
 # Check LFS status
 echo "🔍 Git LFS Status:"
@@ -54,6 +64,12 @@ if [ -z "$COMMIT_MSG" ]; then
 fi
 
 git commit -m "$COMMIT_MSG"
+COMMIT_STATUS=$?
+
+if [ $COMMIT_STATUS -ne 0 ]; then
+    echo "❌ Error: Commit failed. Please check git status and try again."
+    exit 1
+fi
 
 # Push
 echo ""
