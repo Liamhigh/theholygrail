@@ -82,7 +82,7 @@ workbox: {
 
 ### Firebase Config (`firebase.json`)
 
-Headers are configured for video files:
+Headers are configured for video files with 1-year cache:
 
 ```json
 {
@@ -91,14 +91,12 @@ Headers are configured for video files:
     {
       "key": "Cache-Control",
       "value": "public, max-age=31536000"
-    },
-    {
-      "key": "Content-Type",
-      "value": "video/mp4"
     }
   ]
 }
 ```
+
+Note: Content-Type is automatically detected by Firebase based on file extension.
 
 ### Git Ignore (`.gitignore`)
 
