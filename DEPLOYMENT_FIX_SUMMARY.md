@@ -13,12 +13,13 @@ firebase deploy --only functions --token "${{ secrets.FIREBASE_SERVICE_ACCOUNT_V
 
 **Problem**: The `--token` flag expects a Firebase CI token (obtained via `firebase login:ci`), not a service account JSON.
 
-**Solution**: Write the service account JSON to a file, use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable, and clean up the file after deployment:
+**Solution**: Write the service account JSON to a file with restricted permissions, use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable, and clean up the file after deployment:
 ```yaml
 - name: Deploy Firebase Functions
   run: |
     npm install -g firebase-tools
     echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERUM_OMNIS_V2 }}' > $HOME/gcloud-key.json
+    chmod 600 $HOME/gcloud-key.json
     export GOOGLE_APPLICATION_CREDENTIALS="$HOME/gcloud-key.json"
     firebase deploy --only functions --project verum-omnis-v2
     rm -f $HOME/gcloud-key.json
