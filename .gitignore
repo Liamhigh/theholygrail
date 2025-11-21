@@ -38,3 +38,7 @@ android/app/src/main/assets/public/
 
 # Firebase cache
 .firebase/
+
+# Build-time extracted assets (generated from assets.zip and videos/)
+public/assets/
+public/videos/

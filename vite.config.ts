@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,mp4,mov,avi,mkv,webm,flv,wmv,m4v,mpeg,mpg,jpg,jpeg,gif}']
         }
       })
     ],
