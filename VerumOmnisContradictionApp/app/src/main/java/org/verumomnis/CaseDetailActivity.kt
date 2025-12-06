@@ -4,9 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.verumomnis.databinding.ActivityCaseDetailBinding
-import org.verumomnis.engine.ContradictionEngine
+import org.verumomnis.engine.EngineManager
 import org.verumomnis.utils.FileUtils
 import org.verumomnis.utils.OcrUtils
 
@@ -39,13 +41,16 @@ class CaseDetailActivity : AppCompatActivity() {
 
         binding.btnGenerateReport.setOnClickListener {
             lifecycleScope.launch {
-                val engine = ContradictionEngine()
-                engine.ingest(allEvidence.toString())
-                val results = engine.analyze()
-                val report = engine.buildReport(results)
+                // Run the full 4-layer forensic engine pipeline
+                val report = withContext(Dispatchers.Default) {
+                    val engineManager = EngineManager()
+                    engineManager.analyze(allEvidence.toString())
+                }
 
+                // Save the final report
                 FileUtils.saveReport(this@CaseDetailActivity, caseId, report)
 
+                // Navigate to report viewer
                 val intent = Intent(this@CaseDetailActivity, ReportViewerActivity::class.java)
                 intent.putExtra("caseId", caseId)
                 startActivity(intent)
