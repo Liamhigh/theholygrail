@@ -159,6 +159,7 @@ class ContradictionEngine {
         aLower: String, bLower: String,
         overlap: Set<String>
     ): ContradictionResult? {
+        // Explicit denial patterns with their corresponding evidence words
         val denialPatterns = listOf(
             "no payment" to "payment",
             "never met" to "met",
@@ -166,14 +167,25 @@ class ContradictionEngine {
             "no email" to "email",
             "no invoice" to "invoice",
             "never agreed" to "agreed",
-            "no contract" to "contract"
+            "no contract" to "contract",
+            "did not pay" to "paid",
+            "never paid" to "paid",
+            "did not send" to "sent",
+            "never sent" to "sent"
         )
 
         for ((denial, evidence) in denialPatterns) {
             val aDenies = aLower.contains(denial)
             val bDenies = bLower.contains(denial)
-            val aHasEvidence = aLower.contains(evidence) && !aLower.contains("no $evidence") && !aLower.contains("never $evidence")
-            val bHasEvidence = bLower.contains(evidence) && !bLower.contains("no $evidence") && !bLower.contains("never $evidence")
+            
+            // Check for evidence without any denial prefix (checking once per pattern)
+            val aHasEvidence = if (aLower.contains(evidence)) {
+                !denialPatterns.any { (d, e) -> e == evidence && aLower.contains(d) }
+            } else false
+            
+            val bHasEvidence = if (bLower.contains(evidence)) {
+                !denialPatterns.any { (d, e) -> e == evidence && bLower.contains(d) }
+            } else false
 
             if ((aDenies && bHasEvidence) || (bDenies && aHasEvidence)) {
                 return ContradictionResult(
@@ -256,10 +268,23 @@ class ContradictionEngine {
         overlap: Set<String>
     ): ContradictionResult? {
         for (admission in admissionWords) {
-            val aAdmits = aLower.contains(admission) && !negationWords.any { aLower.contains("$it $admission") || aLower.contains("$it$admission") }
-            val bAdmits = bLower.contains(admission) && !negationWords.any { bLower.contains("$it $admission") || bLower.contains("$it$admission") }
-            val aDenies = aLower.contains(admission) && negationWords.any { aLower.contains(it) }
-            val bDenies = bLower.contains(admission) && negationWords.any { bLower.contains(it) }
+            if (!aLower.contains(admission) && !bLower.contains(admission)) continue
+            
+            // Check if statement A admits (contains admission without negation prefix)
+            val aAdmits = aLower.contains(admission) && 
+                !negationWords.any { aLower.contains("$it $admission") || aLower.contains("$it$admission") }
+            
+            // Check if statement B admits (contains admission without negation prefix)
+            val bAdmits = bLower.contains(admission) && 
+                !negationWords.any { bLower.contains("$it $admission") || bLower.contains("$it$admission") }
+            
+            // Check if statement A denies (contains negation word directly before/around admission word)
+            val aDenies = aLower.contains(admission) && 
+                negationWords.any { aLower.contains("$it $admission") || aLower.contains("$it$admission") }
+            
+            // Check if statement B denies (contains negation word directly before/around admission word)
+            val bDenies = bLower.contains(admission) && 
+                negationWords.any { bLower.contains("$it $admission") || bLower.contains("$it$admission") }
 
             if ((aAdmits && bDenies) || (bAdmits && aDenies)) {
                 return ContradictionResult(
@@ -281,9 +306,29 @@ class ContradictionEngine {
         aLower: String, bLower: String,
         overlap: Set<String>
     ): ContradictionResult? {
+        // Action denial patterns: look for negation directly associated with the action
+        val actionDenialPatterns = listOf(
+            "sent nothing", "never sent", "did not send", "didn't send",
+            "delivered nothing", "never delivered", "did not deliver", "didn't deliver",
+            "provided nothing", "never provided", "did not provide", "didn't provide",
+            "gave nothing", "never gave", "did not give", "didn't give",
+            "submitted nothing", "never submitted", "did not submit", "didn't submit",
+            "attached nothing", "never attached", "did not attach", "didn't attach",
+            "included nothing", "never included", "did not include", "didn't include",
+            "shared nothing", "never shared", "did not share", "didn't share",
+            "transferred nothing", "never transferred", "did not transfer", "didn't transfer",
+            "paid nothing", "never paid", "did not pay", "didn't pay"
+        )
+        
         for (action in actionWords) {
-            val aDeniesAction = aLower.contains(action) && (aLower.contains("nothing") || aLower.contains("never") || aLower.contains("did not"))
-            val bDeniesAction = bLower.contains(action) && (bLower.contains("nothing") || bLower.contains("never") || bLower.contains("did not"))
+            // Check for specific denial patterns (more precise)
+            val aDeniesAction = actionDenialPatterns.any { pattern -> 
+                aLower.contains(pattern) && pattern.contains(action.dropLast(if (action.endsWith("ed")) 2 else 0).take(4))
+            }
+            val bDeniesAction = actionDenialPatterns.any { pattern -> 
+                bLower.contains(pattern) && pattern.contains(action.dropLast(if (action.endsWith("ed")) 2 else 0).take(4))
+            }
+            
             val aConfirmsAction = aLower.contains(action) && !aDeniesAction
             val bConfirmsAction = bLower.contains(action) && !bDeniesAction
 
