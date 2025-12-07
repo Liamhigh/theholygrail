@@ -133,15 +133,14 @@ The Holy Grail repository currently contains the **Verum Omnis Constitutional Go
 - No file format specifications
 
 **Need to define:**
-```kotlin
-// Example from Verumdec
-data class Evidence(...)
-data class Entity(...)
-data class TimelineEvent(...)
-data class Contradiction(...)
-data class BehavioralPattern(...)
-data class ForensicReport(...)
-```
+
+Data model examples (conceptual structure based on Verumdec):
+- `Evidence`: File metadata, content, hash, upload timestamp
+- `Entity`: Name, type (person/org), aliases, associated evidence
+- `TimelineEvent`: Timestamp, event type, description, significance score
+- `Contradiction`: Type, severity, conflicting statements, evidence references
+- `BehavioralPattern`: Pattern type, frequency, severity, examples
+- `ForensicReport`: Case summary, all analysis results, PDF output, SHA-512 hash
 
 #### 3. **User Interface** (100% missing)
 

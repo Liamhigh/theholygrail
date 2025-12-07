@@ -38,8 +38,15 @@ Verumdec is a production-ready Android application that already implements most 
 
 ```bash
 # 1. Clone Verumdec repository
+# Note: Verify you have access to this repository first
 git clone https://github.com/Liamhigh/Verumdec.git holy-grail-app
 cd holy-grail-app
+
+# Verify the clone was successful
+if [ ! -d "app/src/main/java" ]; then
+  echo "Error: Repository structure not as expected. Verify clone URL and access."
+  exit 1
+fi
 
 # 2. Integrate verum-constitution.json
 mkdir -p app/src/main/assets/
@@ -149,11 +156,14 @@ npx create-react-app holy-grail-web --template typescript
 cd holy-grail-web
 
 # 2. Install dependencies
+# UI and styling
 npm install @mui/material @emotion/react @emotion/styled
-npm install pdfkit jszip crypto-js
-npm install tesseract.js
-npm install express cors dotenv
-npm install sequelize pg pg-hstore
+
+# PDF and file processing
+npm install pdfkit jszip crypto-js tesseract.js
+
+# Backend and database
+npm install express cors dotenv sequelize pg pg-hstore
 
 # 3. Copy constitutional framework
 cp /path/to/theholygrail/verum-constitution.json public/

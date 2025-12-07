@@ -185,15 +185,17 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed comparison.
 #### 3. Setup Development Environment
 
 ```bash
-# Clone this repository
-git clone https://github.com/Liamhigh/theholygrail.git
+# Clone this repository (update URL to match your fork if needed)
+git clone <repository-url>
 cd theholygrail
 
 # Review the constitutional framework
 cat verum-constitution.json
 
 # Follow the implementation checklist
-open CHECKLIST.md
+# On macOS/Linux: open CHECKLIST.md
+# On Windows: start CHECKLIST.md
+# Or view in your text editor
 ```
 
 #### 4. Begin Implementation
